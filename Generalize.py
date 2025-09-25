@@ -44,17 +44,16 @@ import time
 from plotly.subplots import make_subplots
 import plotly.express as px
 
-api_key = None
-# Try Streamlit secrets first (for local dev), else fallback to Render environment variable
-if "GEMINI_API_KEY" in st.secrets:
-    api_key = st.secrets["GEMINI_API_KEY"]
-else:
+try:
+    from streamlit.runtime.secrets import secrets
+    api_key = secrets["GEMINI_API_KEY"]
+except Exception:
     api_key = os.getenv("GEMINI_API_KEY")
 
 if api_key:
     genai.configure(api_key=api_key)
 else:
-    st.error("❌ GEMINI_API_KEY not found. Please set it in Render Environment Variables.")
+    st.error("❌ GEMINI_API_KEY not found. Please set it either in .streamlit/secrets.toml (local) or Render Environment.")
     st.stop()
     
 # ===========================
@@ -5019,5 +5018,6 @@ def create_business_feature_insights(model, X, target_name, business_type, langu
     except Exception as e:
         st.error(f"Could not analyze key factors: {str(e)}")
         return None
+
 
 
