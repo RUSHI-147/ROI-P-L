@@ -1171,17 +1171,20 @@ def engineer_features_with_metrics(df, num_cols, cat_cols):
         potential_date_cols = [col for col in df.columns if any(keyword in col.lower() for keyword in ['date', 'time', 'year', 'month'])]
         for col in potential_date_cols:
             try:
-                df_eng[col] = pd.to_datetime(df_eng[col])
-                date_cols.append(col)
-            except:
-                pass
+                df_eng[col] = pd.to_datetime(df_eng[col], errors="coerce")  
+                if pd.api.types.is_datetime64_any_dtype(df_eng[col]):       
+                    date_cols.append(col)
+            except Exception as e:
+                print(f"Skipping {col}: {e}")
+            pass
 
     if date_cols:
         date_col = date_cols[0]
-        df_eng['Year'] = df_eng[date_col].dt.year
-        df_eng['Month'] = df_eng[date_col].dt.month
-        df_eng['Quarter'] = df_eng[date_col].dt.quarter
-        new_features.extend(['Year', 'Month', 'Quarter'])
+        if pd.api.types.is_datetime64_any_dtype(df_eng[date_col]):
+            df_eng['Year'] = df_eng[date_col].dt.year
+            df_eng['Month'] = df_eng[date_col].dt.month
+            df_eng['Quarter'] = df_eng[date_col].dt.quarter
+            new_features.extend(['Year', 'Month', 'Quarter'])
 
     # One-hot encode remaining categoricals
     remaining_cat_cols = [col for col in cat_cols if col in df_eng.columns]
@@ -5063,6 +5066,7 @@ def create_business_feature_insights(model, X, target_name, business_type, langu
     except Exception as e:
         st.error(f"Could not analyze key factors: {str(e)}")
         return None
+
 
 
 
