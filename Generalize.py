@@ -85,6 +85,24 @@ if 'whatif_baseline' not in st.session_state:
     st.session_state.whatif_baseline = None
 if 'whatif_results' not in st.session_state:
     st.session_state.whatif_results = {}
+
+# ==============================
+# DATA LOADING WITH SAFE FALLBACK
+# ==============================
+def load_dataset():
+    df = None
+    try:
+        # Try to load default CSV if present
+        df = pd.read_csv("data.csv")
+        st.success("✅ Loaded dataset from data.csv")
+    except FileNotFoundError:
+        st.warning("⚠️ data.csv not found. Using dummy dataset instead.")
+        df = create_dummy_dataset()
+    except Exception as e:
+        st.error(f"❌ Failed to load dataset: {e}")
+        
+        df = create_dummy_dataset()
+    return df
     
 # ===========================
 # PAGE CONFIGURATION
@@ -4782,9 +4800,28 @@ st.header("📂 Upload Your Dataset")
 uploaded_file = st.file_uploader("Upload a CSV or Excel file", type=["csv", "xlsx"])
 
 if uploaded_file is not None:
-    # Load data
-    raw_data = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_excel(uploaded_file)
+    # Load uploaded data
+    try:
+        raw_data = (
+            pd.read_csv(uploaded_file)
+            if uploaded_file.name.endswith(".csv")
+            else pd.read_excel(uploaded_file)
+        )
+        st.success("✅ Dataset uploaded successfully!")
+    except Exception as e:
+        st.error(f"❌ Failed to read uploaded file: {e}")
+        raw_data = create_dummy_dataset()
+else:
+    # Fallback if no file is uploaded
+    try:
+        raw_data = pd.read_csv("data.csv")  # optional: include a default file in repo
+        st.info("ℹ️ Using default data.csv from repository")
+    except FileNotFoundError:
+        st.warning("⚠️ No file uploaded and data.csv not found → using dummy dataset")
+        raw_data = create_dummy_dataset()
 
+# ---- Dataset Processing ----
+if raw_data is not None:
     # Analyze features
     num_cols, cat_cols = analyze_dataset_features(raw_data)
 
@@ -4792,13 +4829,21 @@ if uploaded_file is not None:
     data_cleaned, cat_cols_updated, num_cols_updated = auto_clean_dataset(raw_data)
     
     # Engineer features
-    data_engineered, new_features = engineer_features_with_metrics(data_cleaned, num_cols_updated, cat_cols_updated)
+    data_engineered, new_features = engineer_features_with_metrics(
+        data_cleaned, num_cols_updated, cat_cols_updated
+    )
     
     # Store in session state
     st.session_state["data_cleaned"] = data_cleaned
     st.session_state["cat_cols"] = cat_cols_updated
     st.session_state["num_cols"] = num_cols_updated
     st.session_state["data_engineered"] = data_engineered
+
+    # Show preview
+    st.write("### Preview of Processed Data")
+    st.dataframe(data_engineered.head())
+else:
+    st.error("❌ No dataset could be loaded.")
 
 # ===========================
 # USER-FRIENDLY SIDEBAR
@@ -5018,6 +5063,7 @@ def create_business_feature_insights(model, X, target_name, business_type, langu
     except Exception as e:
         st.error(f"Could not analyze key factors: {str(e)}")
         return None
+
 
 
 
