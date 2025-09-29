@@ -43,21 +43,14 @@ import pickle
 import time
 from plotly.subplots import make_subplots
 import plotly.express as px
-from pandas.api.types import is_datetime64_any_dtype
 
-
-try:
-    from streamlit.runtime.secrets import secrets
-    api_key = secrets["GEMINI_API_KEY"]
-except Exception:
-    api_key = os.getenv("GEMINI_API_KEY")
-
+api_key = os.getenv("GEMINI_API_KEY")
 if api_key:
     genai.configure(api_key=api_key)
 else:
-    st.error("❌ GEMINI_API_KEY not found. Please set it either in .streamlit/secrets.toml (local) or Render Environment.")
+    st.error("GEMINI_API_KEY not found. Please set it in Render dashboard → Environment.")
     st.stop()
-    
+
 # ===========================
 # SESSION STATE INITIALIZATION
 # ===========================
@@ -87,24 +80,6 @@ if 'whatif_baseline' not in st.session_state:
     st.session_state.whatif_baseline = None
 if 'whatif_results' not in st.session_state:
     st.session_state.whatif_results = {}
-
-# ==============================
-# DATA LOADING WITH SAFE FALLBACK
-# ==============================
-def load_dataset():
-    df = None
-    try:
-        # Try to load default CSV if present
-        df = pd.read_csv("data.csv")
-        st.success("✅ Loaded dataset from data.csv")
-    except FileNotFoundError:
-        st.warning("⚠️ data.csv not found. Using dummy dataset instead.")
-        df = create_dummy_dataset()
-    except Exception as e:
-        st.error(f"❌ Failed to load dataset: {e}")
-        
-        df = create_dummy_dataset()
-    return df
     
 # ===========================
 # PAGE CONFIGURATION
@@ -1169,28 +1144,21 @@ def engineer_features_with_metrics(df, num_cols, cat_cols):
     # --- Time-based features (if date columns exist) ---
     date_cols = df.select_dtypes(include=['datetime64']).columns.tolist()
     if not date_cols:
-        potential_date_cols = [
-            col for col in df.columns 
-        if any(keyword in col.lower() for keyword in ['date', 'time', 'year', 'month'])
-        ]
+        # Try to identify date columns by name
+        potential_date_cols = [col for col in df.columns if any(keyword in col.lower() for keyword in ['date', 'time', 'year', 'month'])]
         for col in potential_date_cols:
             try:
-                df_eng[col] = pd.to_datetime(df_eng[col], errors="coerce")  # ✅ force parse
-                if is_datetime64_any_dtype(df_eng[col]):                   # ✅ only keep valid ones
-                    date_cols.append(col)
-            except Exception as e:
-                print(f"Skipping {col}: {e}")
-                continue
+                df_eng[col] = pd.to_datetime(df_eng[col])
+                date_cols.append(col)
+            except:
+                pass
 
     if date_cols:
         date_col = date_cols[0]
-        if is_datetime64_any_dtype(df_eng[date_col]):                      # ✅ check before using .dt
-            df_eng['Year'] = df_eng[date_col].dt.year
-            df_eng['Month'] = df_eng[date_col].dt.month
-            df_eng['Quarter'] = df_eng[date_col].dt.quarter
-            new_features.extend(['Year', 'Month', 'Quarter'])
-        else:
-            st.warning(f"⚠️ Column '{date_col}' could not be parsed as datetime. Skipping time-based features.")
+        df_eng['Year'] = df_eng[date_col].dt.year
+        df_eng['Month'] = df_eng[date_col].dt.month
+        df_eng['Quarter'] = df_eng[date_col].dt.quarter
+        new_features.extend(['Year', 'Month', 'Quarter'])
 
     # One-hot encode remaining categoricals
     remaining_cat_cols = [col for col in cat_cols if col in df_eng.columns]
@@ -4809,28 +4777,9 @@ st.header("📂 Upload Your Dataset")
 uploaded_file = st.file_uploader("Upload a CSV or Excel file", type=["csv", "xlsx"])
 
 if uploaded_file is not None:
-    # Load uploaded data
-    try:
-        raw_data = (
-            pd.read_csv(uploaded_file)
-            if uploaded_file.name.endswith(".csv")
-            else pd.read_excel(uploaded_file)
-        )
-        st.success("✅ Dataset uploaded successfully!")
-    except Exception as e:
-        st.error(f"❌ Failed to read uploaded file: {e}")
-        raw_data = create_dummy_dataset()
-else:
-    # Fallback if no file is uploaded
-    try:
-        raw_data = pd.read_csv("data.csv")  # optional: include a default file in repo
-        st.info("ℹ️ Using default data.csv from repository")
-    except FileNotFoundError:
-        st.warning("⚠️ No file uploaded and data.csv not found → using dummy dataset")
-        raw_data = create_dummy_dataset()
+    # Load data
+    raw_data = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_excel(uploaded_file)
 
-# ---- Dataset Processing ----
-if raw_data is not None:
     # Analyze features
     num_cols, cat_cols = analyze_dataset_features(raw_data)
 
@@ -4838,21 +4787,13 @@ if raw_data is not None:
     data_cleaned, cat_cols_updated, num_cols_updated = auto_clean_dataset(raw_data)
     
     # Engineer features
-    data_engineered, new_features = engineer_features_with_metrics(
-        data_cleaned, num_cols_updated, cat_cols_updated
-    )
+    data_engineered, new_features = engineer_features_with_metrics(data_cleaned, num_cols_updated, cat_cols_updated)
     
     # Store in session state
     st.session_state["data_cleaned"] = data_cleaned
     st.session_state["cat_cols"] = cat_cols_updated
     st.session_state["num_cols"] = num_cols_updated
     st.session_state["data_engineered"] = data_engineered
-
-    # Show preview
-    st.write("### Preview of Processed Data")
-    st.dataframe(data_engineered.head())
-else:
-    st.error("❌ No dataset could be loaded.")
 
 # ===========================
 # USER-FRIENDLY SIDEBAR
@@ -5072,9 +5013,3 @@ def create_business_feature_insights(model, X, target_name, business_type, langu
     except Exception as e:
         st.error(f"Could not analyze key factors: {str(e)}")
         return None
-
-
-
-
-
-
