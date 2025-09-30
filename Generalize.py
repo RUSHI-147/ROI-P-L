@@ -44,12 +44,12 @@ import time
 from plotly.subplots import make_subplots
 import plotly.express as px
 
-api_key = st.secrets.get("GEMINI_API_KEY")
-
-gemini_api_key = os.getenv("GEMINI_API_KEY") or st.secrets["gemini_api_key"]
+gemini_api_key = os.getenv("GEMINI_API_KEY")
 
 if not gemini_api_key:
-    st.error("Gemini API key not found. Please set it in Render or secrets.toml")
+    st.error("Gemini API key not found! Make sure GEMINI_API_KEY is set in Render environment variables.")
+else:
+    st.write("API key loaded successfully ✅")
 
 # ===========================
 # SESSION STATE INITIALIZATION
@@ -5013,6 +5013,7 @@ def create_business_feature_insights(model, X, target_name, business_type, langu
     except Exception as e:
         st.error(f"Could not analyze key factors: {str(e)}")
         return None
+
 
 
 
