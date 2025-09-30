@@ -4955,9 +4955,9 @@ if st.session_state.get("analysis_run_successfully"):
         st.markdown("---")
     
     # Add What-If Analysis section
-    whatif_expander = st.expander("🔮 What-If Scenario Analysis", expanded=False)
-    with whatif_expander:
-        create_whatif_interface()
+    #whatif_expander = st.expander("🔮 What-If Scenario Analysis", expanded=False)
+    #with whatif_expander:
+        #create_whatif_interface()
     
     # 6. Display PDF Export Section LAST
     handle_export_requests(
@@ -5014,4 +5014,5 @@ def create_business_feature_insights(model, X, target_name, business_type, langu
     except Exception as e:
         st.error(f"Could not analyze key factors: {str(e)}")
         return None
+
 
