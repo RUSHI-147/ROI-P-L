@@ -46,11 +46,10 @@ import plotly.express as px
 
 api_key = st.secrets.get("GEMINI_API_KEY")
 
-if api_key:
-    genai.configure(api_key=api_key)
-else:
-    st.error("GEMINI_API_KEY not found in Streamlit secrets.")
-    st.stop()
+gemini_api_key = os.getenv("GEMINI_API_KEY") or st.secrets["gemini_api_key"]
+
+if not gemini_api_key:
+    st.error("Gemini API key not found. Please set it in Render or secrets.toml")
 
 # ===========================
 # SESSION STATE INITIALIZATION
@@ -5014,5 +5013,6 @@ def create_business_feature_insights(model, X, target_name, business_type, langu
     except Exception as e:
         st.error(f"Could not analyze key factors: {str(e)}")
         return None
+
 
 
